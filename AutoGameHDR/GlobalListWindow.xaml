@@ -1,0 +1,19 @@
+﻿<Window x:Class="AutoGameHDR.GlobalListWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="在线云端白名单 (只读)" Height="500" Width="400"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="此列表每日从 GitHub 自动更新，包含原生支持 HDR 的游戏。" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="Gray"/>
+
+        <ListBox x:Name="GameList" Grid.Row="1" BorderThickness="1" BorderBrush="#CCCCCC"/>
+
+        <Button Grid.Row="2" Content="关闭" Click="Close_Click" Padding="20,5" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+    </Grid>
+</Window>

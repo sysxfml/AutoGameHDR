@@ -9,26 +9,29 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32; // 引用注册表命名空间
 using Hardcodet.Wpf.TaskbarNotification;
 
 namespace AutoGameHDR
 {
     public partial class App : Application
     {
-        // GitHub Raw URL (你的仓库地址)
+        // 你的 GitHub 白名单地址
         private const string GITHUB_WHITELIST_URL = "https://raw.githubusercontent.com/sysxfml/HDR-Game-Database/main/games_list.txt";
+        // 注册表里的应用名称
+        private const string APP_NAME = "AutoGameHDR";
 
         private TaskbarIcon _trayIcon;
         private ManagementEventWatcher _startWatcher;
         private ManagementEventWatcher _stopWatcher;
 
+        // 数据集合
         private HashSet<string> _userWhitelist = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> _disabledUserGames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private HashSet<string> _globalWhitelist = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        private Queue<string> _recentProcesses = new Queue<string>(5);
         private string _currentRunningHdrGame = null;
 
-        // 配置路径变量
         private readonly string _configFolder;
         private readonly string _userListPath;
         private readonly string _globalListPath;
@@ -38,8 +41,6 @@ namespace AutoGameHDR
 
         public App()
         {
-            // 将配置文件路径设置在 AppData/Local/AutoGameHDR
-            // 这样无论 EXE 放在哪里（包括桌面或 Program Files），都有权限读写文件
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             _configFolder = Path.Combine(localAppData, "AutoGameHDR");
 
@@ -55,66 +56,201 @@ namespace AutoGameHDR
             base.OnStartup(e);
 
             InitLocalization();
-            InitializeTrayIcon();
+            InitializeTrayIcon(); // 初始化菜单
             LoadLocalData();
+
             Task.Run(() => CheckForUpdates());
             StartProcessWatcher();
         }
 
+        // ==========================================
+        //  UI 与 交互逻辑 (菜单、弹窗)
+        // ==========================================
+        private void InitializeTrayIcon()
+        {
+            _trayIcon = new TaskbarIcon();
+            try
+            {
+                var iconUri = new Uri("pack://application:,,,/app.ico");
+                var streamInfo = GetResourceStream(iconUri);
+                if (streamInfo != null) _trayIcon.Icon = new System.Drawing.Icon(streamInfo.Stream);
+                else _trayIcon.Icon = System.Drawing.SystemIcons.Shield;
+            }
+            catch { _trayIcon.Icon = System.Drawing.SystemIcons.Shield; }
+
+            _trayIcon.ToolTipText = GetText("Title");
+
+            // 创建右键菜单
+            var contextMenu = new ContextMenu();
+
+            // 1. 进程选择器 (Cheat Engine 风格)
+            var addItem = new MenuItem { Header = GetText("AddFromRunning") };
+            addItem.Click += (s, e) => OpenProcessSelector();
+            contextMenu.Items.Add(addItem);
+
+            contextMenu.Items.Add(new Separator());
+
+            // 2. 管理本地名单
+            var manageItem = new MenuItem { Header = GetText("ViewUserList") };
+            manageItem.Click += (s, e) => ShowUserList();
+            contextMenu.Items.Add(manageItem);
+
+            // 3. 查看在线名单 (新增)
+            var onlineItem = new MenuItem { Header = GetText("ViewOnlineList") };
+            onlineItem.Click += (s, e) => ShowGlobalList();
+            contextMenu.Items.Add(onlineItem);
+
+            contextMenu.Items.Add(new Separator());
+
+            // 4. 开机自启 (带勾选)
+            var startupItem = new MenuItem { Header = GetText("RunAtStartup"), IsCheckable = true };
+            // 初始化时检查注册表状态
+            startupItem.IsChecked = IsStartupEnabled();
+            startupItem.Click += (s, e) => ToggleStartup(startupItem.IsChecked);
+            contextMenu.Items.Add(startupItem);
+
+            contextMenu.Items.Add(new Separator());
+
+            // 5. 退出
+            var exitItem = new MenuItem { Header = GetText("Exit") };
+            exitItem.Click += (s, e) => Shutdown();
+            contextMenu.Items.Add(exitItem);
+
+            _trayIcon.ContextMenu = contextMenu;
+        }
+
+        // 打开进程选择器窗口
+        private void OpenProcessSelector()
+        {
+            var win = new ProcessSelectorWindow();
+            if (win.ShowDialog() == true)
+            {
+                // 用户选择了某个进程，添加它
+                AddCustomGame(win.SelectedProcessName);
+            }
+        }
+
+        // 打开本地管理窗口
+        private void ShowUserList()
+        {
+            foreach (Window w in Application.Current.Windows)
+            {
+                if (w is GameListWindow) { w.Activate(); return; }
+            }
+            var win = new GameListWindow(_userWhitelist, _disabledUserGames);
+            win.Show();
+        }
+
+        // 打开在线名单窗口
+        private void ShowGlobalList()
+        {
+            foreach (Window w in Application.Current.Windows)
+            {
+                if (w is GlobalListWindow) { w.Activate(); return; }
+            }
+            var win = new GlobalListWindow(_globalWhitelist);
+            win.Show();
+        }
+
+        // 更新用户列表 (被 GameListWindow 调用)
+        public void UpdateUserList(List<GameItem> items)
+        {
+            _userWhitelist.Clear();
+            _disabledUserGames.Clear();
+
+            foreach (var item in items)
+            {
+                if (item.IsEnabled)
+                    _userWhitelist.Add(item.ProcessName);
+                else
+                    _disabledUserGames.Add(item.ProcessName);
+            }
+            SaveUserList();
+            MessageBox.Show("名单更新成功！", "AutoGameHDR", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+        }
+
+        // ==========================================
+        //  开机自启逻辑 (注册表)
+        // ==========================================
+        private bool IsStartupEnabled()
+        {
+            try
+            {
+                // 读取 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
+                {
+                    return key.GetValue(APP_NAME) != null;
+                }
+            }
+            catch { return false; }
+        }
+
+        private void ToggleStartup(bool enable)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true))
+                {
+                    if (enable)
+                    {
+                        // 设置当前 exe 路径
+                        string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                        key.SetValue(APP_NAME, $"\"{exePath}\"");
+                    }
+                    else
+                    {
+                        // 删除键值
+                        key.DeleteValue(APP_NAME, false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("设置开机启动失败 (可能是被杀毒软件拦截)：\n" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            }
+        }
+
+        // ==========================================
+        //  多语言文本
+        // ==========================================
         private void InitLocalization()
         {
             var culture = System.Globalization.CultureInfo.CurrentUICulture.Name;
-
-            if (culture.StartsWith("zh-CN", StringComparison.OrdinalIgnoreCase))
+            if (culture.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
             {
                 _texts = new Dictionary<string, string> {
                     { "Title", "AutoGameHDR (运行中)" },
-                    { "AddRecent", "添加刚才运行的游戏..." },
-                    { "NoRecent", "(暂无记录)" },
-                    { "Added", "[已添加] " },
-                    { "ViewUserList", "查看我的自定义名单" },
-                    { "Exit", "退出" },
+                    { "AddFromRunning", "➕ 选择正在运行的游戏..." },
+                    { "ViewUserList", "📋 管理自定义名单..." },
+                    { "ViewOnlineList", "☁️ 查看在线白名单..." },
+                    { "RunAtStartup", "🚀 开机自动启动" },
+                    { "Exit", "❌ 退出" },
                     { "MsgAddSuccess", "已添加 {0}" },
                     { "MsgHdrOn", "识别到 {0}，正在开启 HDR" },
-                    { "MsgHdrOff", "游戏关闭，正在关闭 HDR" },
-                    { "ListTitle", "自定义名单" }
-                };
-            }
-            else if (culture.StartsWith("zh-TW", StringComparison.OrdinalIgnoreCase) ||
-                     culture.StartsWith("zh-HK", StringComparison.OrdinalIgnoreCase))
-            {
-                _texts = new Dictionary<string, string> {
-                    { "Title", "AutoGameHDR (運行中)" },
-                    { "AddRecent", "加入剛剛執行的遊戲..." },
-                    { "NoRecent", "(暫無紀錄)" },
-                    { "Added", "[已加入] " },
-                    { "ViewUserList", "查看我的自訂名單" },
-                    { "Exit", "退出" },
-                    { "MsgAddSuccess", "已加入 {0}" },
-                    { "MsgHdrOn", "偵測到 {0}，正在開啟 HDR" },
-                    { "MsgHdrOff", "遊戲關閉，正在關閉 HDR" },
-                    { "ListTitle", "自訂名單" }
+                    { "MsgHdrOff", "游戏关闭，正在关闭 HDR" }
                 };
             }
             else
             {
                 _texts = new Dictionary<string, string> {
                     { "Title", "AutoGameHDR (Running)" },
-                    { "AddRecent", "Add Recent Game..." },
-                    { "NoRecent", "(No history)" },
-                    { "Added", "[Added] " },
-                    { "ViewUserList", "View My List" },
-                    { "Exit", "Exit" },
+                    { "AddFromRunning", "➕ Select Running Game..." },
+                    { "ViewUserList", "📋 Manage Custom List..." },
+                    { "ViewOnlineList", "☁️ View Online Whitelist..." },
+                    { "RunAtStartup", "🚀 Run at Startup" },
+                    { "Exit", "❌ Exit" },
                     { "MsgAddSuccess", "Added {0}" },
                     { "MsgHdrOn", "Detected {0}, enabling HDR" },
-                    { "MsgHdrOff", "Game closed, disabling HDR" },
-                    { "ListTitle", "My Custom List" }
+                    { "MsgHdrOff", "Game closed, disabling HDR" }
                 };
             }
         }
 
         private string GetText(string key) => _texts.ContainsKey(key) ? _texts[key] : key;
 
+        // ==========================================
+        //  核心业务逻辑 (下载、监听、开关)
+        // ==========================================
         private async Task CheckForUpdates()
         {
             try
@@ -130,21 +266,16 @@ namespace AutoGameHDR
                 {
                     client.Timeout = TimeSpan.FromSeconds(10);
                     client.DefaultRequestHeaders.UserAgent.ParseAdd("AutoGameHDR-Client");
-
                     string content = await client.GetStringAsync(GITHUB_WHITELIST_URL);
-
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
                         File.WriteAllLines(_globalListPath, lines);
-
                         lock (_globalWhitelist)
                         {
                             _globalWhitelist.Clear();
                             foreach (var line in lines) _globalWhitelist.Add(line.Trim());
                         }
-
                         File.WriteAllText(_lastCheckPath, today);
                     }
                 }
@@ -177,7 +308,12 @@ namespace AutoGameHDR
                 try
                 {
                     foreach (var line in File.ReadAllLines(_userListPath))
-                        if (!string.IsNullOrWhiteSpace(line)) _userWhitelist.Add(line.Trim());
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        string trim = line.Trim();
+                        if (trim.StartsWith("#")) _disabledUserGames.Add(trim.Substring(1));
+                        else _userWhitelist.Add(trim);
+                    }
                 }
                 catch { }
             }
@@ -197,103 +333,25 @@ namespace AutoGameHDR
         {
             try
             {
-                File.WriteAllLines(_userListPath, _userWhitelist);
+                var lines = new List<string>();
+                lines.AddRange(_userWhitelist);
+                lines.AddRange(_disabledUserGames.Select(g => "#" + g));
+                File.WriteAllLines(_userListPath, lines);
             }
             catch { }
         }
 
-        private void InitializeTrayIcon()
-        {
-            _trayIcon = new TaskbarIcon();
-
-            // 【核心修改】从内部资源流读取图标，完美支持单文件打包
-            try
-            {
-                // Uri 格式说明：pack://application:,,,/你的文件名.ico
-                var iconUri = new Uri("pack://application:,,,/app.ico");
-                var streamInfo = GetResourceStream(iconUri);
-
-                if (streamInfo != null)
-                {
-                    _trayIcon.Icon = new System.Drawing.Icon(streamInfo.Stream);
-                }
-                else
-                {
-                    // 如果资源读取失败，回退到系统图标
-                    _trayIcon.Icon = System.Drawing.SystemIcons.Shield;
-                }
-            }
-            catch
-            {
-                // 任何异常都回退到系统图标，保证程序不崩
-                _trayIcon.Icon = System.Drawing.SystemIcons.Shield;
-            }
-
-            _trayIcon.ToolTipText = GetText("Title");
-
-            var contextMenu = new ContextMenu();
-
-            var addRecentItem = new MenuItem { Header = GetText("AddRecent") };
-            addRecentItem.SubmenuOpened += (s, e) => PopulateRecentGamesMenu(addRecentItem);
-            contextMenu.Items.Add(addRecentItem);
-
-            var showListItem = new MenuItem { Header = GetText("ViewUserList") };
-            showListItem.Click += (s, e) => ShowUserList();
-            contextMenu.Items.Add(showListItem);
-
-            contextMenu.Items.Add(new Separator());
-
-            var exitItem = new MenuItem { Header = GetText("Exit") };
-            exitItem.Click += (s, e) => Shutdown();
-            contextMenu.Items.Add(exitItem);
-
-            _trayIcon.ContextMenu = contextMenu;
-        }
-
-        private void ShowUserList()
-        {
-            string list = string.Join("\n", _userWhitelist);
-            if (string.IsNullOrEmpty(list)) list = "(Empty)";
-            MessageBox.Show(list, GetText("ListTitle"));
-        }
-
-        private void PopulateRecentGamesMenu(MenuItem parentItem)
-        {
-            parentItem.Items.Clear();
-            if (_recentProcesses.Count == 0)
-            {
-                parentItem.Items.Add(new MenuItem { Header = GetText("NoRecent"), IsEnabled = false });
-                return;
-            }
-            foreach (var procName in _recentProcesses.Reverse())
-            {
-                var item = new MenuItem();
-
-                bool isUserAdded = _userWhitelist.Contains(procName);
-                bool isGlobalAdded = _globalWhitelist.Contains(procName);
-
-                if (isUserAdded || isGlobalAdded)
-                {
-                    item.Header = GetText("Added") + procName;
-                    item.IsEnabled = false;
-                }
-                else
-                {
-                    item.Header = procName;
-                    item.Click += (s, e) => AddCustomGame(procName);
-                }
-                parentItem.Items.Add(item);
-            }
-        }
-
         private void AddCustomGame(string processName)
         {
+            if (_disabledUserGames.Contains(processName))
+                _disabledUserGames.Remove(processName);
+
             if (!_userWhitelist.Contains(processName))
             {
                 _userWhitelist.Add(processName);
                 SaveUserList();
 
-                MessageBox.Show(string.Format(GetText("MsgAddSuccess"), processName));
+                _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgAddSuccess"), processName), BalloonIcon.Info);
 
                 if (IsProcessRunning(processName) && _currentRunningHdrGame == null)
                 {
@@ -321,15 +379,16 @@ namespace AutoGameHDR
                 _stopWatcher.EventArrived += OnProcessStopped;
                 _stopWatcher.Start();
             }
-            catch { }
+            catch
+            {
+                MessageBox.Show("程序需要管理员权限才能扫描游戏！\n请右键程序 -> 以管理员身份运行。", "Error", MessageBoxButton.OK, MessageBoxImage.Error, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            }
         }
 
         private void OnProcessStarted(object sender, EventArrivedEventArgs e)
         {
             string processName = e.NewEvent.Properties["ProcessName"].Value.ToString();
             if (IsIgnoredProcess(processName)) return;
-
-            AddToRecentHistory(processName);
 
             if (_userWhitelist.Contains(processName) || _globalWhitelist.Contains(processName))
             {
@@ -348,24 +407,19 @@ namespace AutoGameHDR
         private void OnProcessStopped(object sender, EventArrivedEventArgs e)
         {
             string processName = e.NewEvent.Properties["ProcessName"].Value.ToString();
-            if (_currentRunningHdrGame == processName)
+
+            if (string.Equals(_currentRunningHdrGame, processName, StringComparison.OrdinalIgnoreCase))
             {
                 _currentRunningHdrGame = null;
-                Dispatcher.Invoke(() =>
+                Task.Run(async () =>
                 {
-                    _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOff"), processName), BalloonIcon.Info);
-                    SimulateHdrToggle();
+                    await Task.Delay(2000);
+                    Dispatcher.Invoke(() =>
+                    {
+                        _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOff"), processName), BalloonIcon.Info);
+                        SimulateHdrToggle();
+                    });
                 });
-            }
-        }
-
-        private void AddToRecentHistory(string processName)
-        {
-            if (_recentProcesses.Count > 0 && _recentProcesses.Last() == processName) return;
-            lock (_recentProcesses)
-            {
-                if (_recentProcesses.Count >= 5) _recentProcesses.Dequeue();
-                _recentProcesses.Enqueue(processName);
             }
         }
 
@@ -373,7 +427,8 @@ namespace AutoGameHDR
         {
             var lower = name.ToLower();
             return lower == "svchost.exe" || lower == "explorer.exe" || lower == "searchhost.exe" ||
-                   lower == "chrome.exe" || lower == "msedge.exe" || lower == "discord.exe";
+                   lower == "chrome.exe" || lower == "msedge.exe" || lower == "discord.exe" ||
+                   lower == "autogamehdr.exe" || lower == "taskmgr.exe";
         }
 
         private bool IsProcessRunning(string name)

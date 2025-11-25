@@ -1,0 +1,33 @@
+﻿<Window x:Class="AutoGameHDR.GameListWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="自定义游戏白名单管理" Height="450" Width="600"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="勾选以启用，点击删除移除条目" Grid.Row="0" Margin="0,0,0,10" Foreground="Gray"/>
+
+        <DataGrid x:Name="GameGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" BorderThickness="1" BorderBrush="#FFCCCCCC">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="启用" Binding="{Binding IsEnabled}" Width="60"/>
+                <DataGridTextColumn Header="游戏进程名 (.exe)" Binding="{Binding ProcessName}" Width="*" IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="操作" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="删除" Click="DeleteButton_Click" Background="Transparent" Foreground="Red" BorderThickness="0" Cursor="Hand"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="保存并生效" Click="SaveButton_Click" Padding="20,8" Background="#0078D7" Foreground="White" FontWeight="Bold" Cursor="Hand"/>
+        </StackPanel>
+    </Grid>
+</Window>

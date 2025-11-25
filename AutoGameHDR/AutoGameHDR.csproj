@@ -8,6 +8,8 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
 	<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+	<ApplicationManifest>app.manifest</ApplicationManifest>
+	<Version>1.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
