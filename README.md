@@ -51,7 +51,7 @@ User configurations and local whitelists are stored in `%AppData%\AutoGameHDR`.
 * **单文件版：** 一个 exe 文件搞定所有，无需安装。
 
 ### 📥 下载
-请前往 [**Releases (发行版)**](https://github.com/sysxfml/AutoGameHDR/releases) 页面下载最新的 `AutoGameHDR.exe`。
+请前往 [**Releases**](https://github.com/sysxfml/AutoGameHDR/releases) 页面下载最新的 `AutoGameHDR.exe`。
 
 ### 🚀 使用指南
 1.  下载 `AutoGameHDR.exe` 放在任意位置。
