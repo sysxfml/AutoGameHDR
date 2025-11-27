@@ -1,32 +1,71 @@
 ﻿<Window x:Class="AutoGameHDR.ProcessSelectorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="选择正在运行的游戏" Height="500" Width="400"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
-    <Grid Margin="10">
+        Title="添加游戏到自定义名单" Height="520" Width="480"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource PrimaryText}"
+        Style="{StaticResource {x:Type Window}}">
+
+    <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="请从列表中选择游戏进程 (双击直接添加)：" Margin="0,0,0,10" Foreground="#666"/>
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="方式 1: 从正在运行的进程中选择 (双击添加)" FontWeight="Bold" Margin="0,0,0,5"/>
+            <TextBlock Text="方式 2: 点击左下角“浏览文件”手动选择 exe" Foreground="{DynamicResource SecondaryText}"/>
+        </StackPanel>
 
-        <ListBox x:Name="ProcessList" Grid.Row="1" BorderThickness="1" BorderBrush="#DDD" MouseDoubleClick="ProcessList_MouseDoubleClick">
+        <ListBox x:Name="ProcessList" Grid.Row="1" BorderThickness="1" 
+                 BorderBrush="{DynamicResource BorderBrush}" 
+                 Background="{DynamicResource WindowBackground}" 
+                 Foreground="{DynamicResource PrimaryText}"
+                 MouseDoubleClick="ProcessList_MouseDoubleClick"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 Padding="2">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <StackPanel Margin="5">
-                        <TextBlock Text="{Binding ProcessName}" FontWeight="Bold" FontSize="14"/>
-                        <TextBlock Text="{Binding WindowTitle}" FontSize="12" Foreground="Gray"/>
-                    </StackPanel>
+                    <Grid Margin="4,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding ProcessName}" 
+                                       Foreground="{DynamicResource PrimaryText}"/>
+                            <TextBlock Text="{Binding WindowTitle}" 
+                                       FontSize="11" 
+                                       Foreground="{DynamicResource SecondaryText}" 
+                                       Margin="0,2,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button Content="刷新列表" Click="Refresh_Click" Margin="0,0,10,0" Padding="10,5"/>
-            <Button Content="取消" Click="Cancel_Click" Margin="0,0,10,0" Padding="10,5"/>
-            <Button Content="添加选中进程" Click="Select_Click" Padding="15,5" Background="#0078D7" Foreground="White" FontWeight="Bold"/>
-        </StackPanel>
+        <Grid Grid.Row="2" Margin="0,15,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" Content="📂 浏览文件..." Click="Browse_Click" 
+                    Height="32" MinWidth="100"/>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button Content="刷新" Click="Refresh_Click" 
+                        Height="32" MinWidth="80" Margin="0,0,10,0"/>
+
+                <Button Content="取消" Click="Cancel_Click" 
+                        Height="32" MinWidth="80" Margin="0,0,10,0"/>
+
+                <Button Content="添加选中" Click="Select_Click" 
+                        Height="32" MinWidth="100" FontWeight="Bold"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

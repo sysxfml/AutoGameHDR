@@ -4,5 +4,192 @@
              xmlns:local="clr-namespace:AutoGameHDR"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
+        <SolidColorBrush x:Key="WindowBackground" Color="White"/>
+        <SolidColorBrush x:Key="ControlBackground" Color="#F0F0F0"/>
+        <SolidColorBrush x:Key="PrimaryText" Color="Black"/>
+        <SolidColorBrush x:Key="SecondaryText" Color="#666666"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#CCCCCC"/>
+
+        <SolidColorBrush x:Key="ButtonBackground" Color="#0078D7"/>
+        <SolidColorBrush x:Key="ButtonHover" Color="#198CE6"/>
+        <SolidColorBrush x:Key="ButtonText" Color="White"/>
+
+        <SolidColorBrush x:Key="MenuBackground" Color="White"/>
+        <SolidColorBrush x:Key="MenuBorder" Color="#CCCCCC"/>
+        <SolidColorBrush x:Key="MenuItemHover" Color="#E6E6E6"/>
+
+        <Style TargetType="Window">
+            <Setter Property="Background" Value="{DynamicResource WindowBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="FontFamily" Value="{x:Static SystemFonts.MessageFontFamily}"/>
+            <Setter Property="FontSize" Value="{x:Static SystemFonts.MessageFontSize}"/>
+            <Setter Property="UseLayoutRounding" Value="True"/>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,6"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}" 
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ContextMenu">
+            <Setter Property="Background" Value="{DynamicResource MenuBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MenuBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="4">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Direction="315" ShadowDepth="3" Opacity="0.2" Color="Black"/>
+                            </Border.Effect>
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="MenuItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Grid>
+                            <Border x:Name="templateRoot" 
+                                    Background="{TemplateBinding Background}" 
+                                    BorderThickness="0" 
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0" Content="{TemplateBinding Icon}" 
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Path x:Name="CheckMark" Grid.Column="0" Visibility="Collapsed" 
+                                          Data="M 2,6 L 5,9 L 10,2" 
+                                          Stroke="{DynamicResource PrimaryText}" StrokeThickness="2" 
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <ContentPresenter Grid.Column="1" Content="{TemplateBinding Header}" 
+                                                      RecognizesAccessKey="True" 
+                                                      VerticalAlignment="Center"/>
+                                    <Path x:Name="RightArrow" Grid.Column="2" Visibility="Collapsed"
+                                          Data="M 0,0 L 4,4 L 0,8" Stroke="{DynamicResource PrimaryText}" StrokeThickness="1.5"
+                                          VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup" 
+                                   AllowsTransparency="True" 
+                                   Focusable="False" 
+                                   IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" 
+                                   Placement="Right" 
+                                   VerticalOffset="-3"
+                                   PopupAnimation="Fade">
+                                <Border Background="{DynamicResource MenuBackground}" 
+                                        BorderBrush="{DynamicResource MenuBorder}" 
+                                        BorderThickness="1" 
+                                        Padding="2">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="10" Direction="315" ShadowDepth="3" Opacity="0.2" Color="Black"/>
+                                    </Border.Effect>
+                                    <ItemsPresenter/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="templateRoot" Property="Background" Value="{DynamicResource MenuItemHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="templateRoot" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                            <Trigger Property="Role" Value="SubmenuHeader">
+                                <Setter TargetName="RightArrow" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="4,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Background="{TemplateBinding Background}" Height="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="{DynamicResource WindowBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+        </Style>
+
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource WindowBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="RowBackground" Value="{DynamicResource WindowBackground}"/>
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource ControlBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrush}"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource ControlBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
     </Application.Resources>
 </Application>

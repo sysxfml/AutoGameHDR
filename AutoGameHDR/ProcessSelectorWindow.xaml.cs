@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
+using System.IO;
+// 【关键】引入 WinForms 别名
+using WinForms = System.Windows.Forms;
 
 namespace AutoGameHDR
 {
@@ -32,7 +35,6 @@ namespace AutoGameHDR
             {
                 try
                 {
-                    // 过滤逻辑：必须有主窗口标题，且不在黑名单内
                     if (!string.IsNullOrEmpty(p.MainWindowTitle) && !IsIgnored(p.ProcessName))
                     {
                         list.Add(new ProcessItem
@@ -45,7 +47,6 @@ namespace AutoGameHDR
                 catch { }
             }
 
-            // 按首字母排序
             ProcessList.ItemsSource = list.OrderBy(x => x.ProcessName).ToList();
         }
 
@@ -54,6 +55,35 @@ namespace AutoGameHDR
             string lower = name.ToLower();
             return lower == "svchost" || lower == "explorer" || lower == "searchhost" ||
                    lower == "autogamehdr" || lower == "taskmgr" || lower == "applicationframehost";
+        }
+
+        // ===========================
+        //  【防崩溃】使用 WinForms 文件浏览框
+        // ===========================
+        private void Browse_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                using (var openFileDialog = new WinForms.OpenFileDialog())
+                {
+                    openFileDialog.Title = "选择游戏主程序 (.exe)";
+                    openFileDialog.Filter = "可执行文件 (*.exe)|*.exe";
+                    openFileDialog.Multiselect = false;
+                    openFileDialog.CheckFileExists = true;
+
+                    if (openFileDialog.ShowDialog() == WinForms.DialogResult.OK)
+                    {
+                        string fileName = Path.GetFileName(openFileDialog.FileName);
+                        SelectedProcessName = fileName;
+                        DialogResult = true;
+                        Close();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("打开文件浏览框失败：" + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void Refresh_Click(object sender, RoutedEventArgs e)

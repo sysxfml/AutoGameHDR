@@ -2,32 +2,96 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="自定义游戏白名单管理" Height="450" Width="600"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
-    <Grid Margin="15">
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource PrimaryText}"
+        Style="{StaticResource {x:Type Window}}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="勾选以启用，点击删除移除条目" Grid.Row="0" Margin="0,0,0,10" Foreground="Gray"/>
+        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+            <TextBlock Text="管理您的本地游戏列表" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,5"/>
+            <TextBlock Text="勾选左侧方框以启用自动 HDR，点击右侧按钮移除条目。" Foreground="{DynamicResource SecondaryText}" FontSize="12"/>
+        </StackPanel>
 
-        <DataGrid x:Name="GameGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" BorderThickness="1" BorderBrush="#FFCCCCCC">
+        <DataGrid x:Name="GameGrid" Grid.Row="1" 
+                  AutoGenerateColumns="False" 
+                  CanUserAddRows="False" 
+                  CanUserResizeRows="False"
+                  HeadersVisibility="Column" 
+                  BorderThickness="1" 
+                  RowHeight="36"
+                  Background="{DynamicResource WindowBackground}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                  VerticalGridLinesBrush="Transparent">
+
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="启用" Binding="{Binding IsEnabled}" Width="60"/>
-                <DataGridTextColumn Header="游戏进程名 (.exe)" Binding="{Binding ProcessName}" Width="*" IsReadOnly="True"/>
-                <DataGridTemplateColumn Header="操作" Width="80">
+                <DataGridTemplateColumn Header="启用" Width="60">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="删除" Click="DeleteButton_Click" Background="Transparent" Foreground="Red" BorderThickness="0" Cursor="Hand"/>
+                            <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" 
+                                      HorizontalAlignment="Center" 
+                                      VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="游戏进程名 (.exe)" Binding="{Binding ProcessName}" Width="*" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="Padding" Value="10,0,0,0"/>
+                            <Setter Property="FontSize" Value="13"/>
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryText}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTemplateColumn Header="操作" Width="90">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="删除" Click="DeleteButton_Click" 
+                                    Height="26" Width="60"
+                                    FontSize="12"
+                                    Padding="0"
+                                    BorderThickness="1"
+                                    Background="Transparent"
+                                    BorderBrush="#FFCDD2"
+                                    Foreground="#E53935"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#FFEBEE"/>
+                                                <Setter Property="BorderBrush" Value="#E53935"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button Content="保存并生效" Click="SaveButton_Click" Padding="20,8" Background="#0078D7" Foreground="White" FontWeight="Bold" Cursor="Hand"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="保存并生效" Click="SaveButton_Click" 
+                    Height="36" Padding="25,0" 
+                    Background="#0078D7" 
+                    Foreground="White" 
+                    FontWeight="SemiBold"/>
         </StackPanel>
     </Grid>
 </Window>
