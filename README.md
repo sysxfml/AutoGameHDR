@@ -6,56 +6,65 @@
 
 [English](#english) | [中文](#chinese)
 
-**AutoGameHDR** is an ultra-lightweight Windows utility that automatically toggles System HDR on/off when you launch supported games. Designed to bring the console-like "Auto HDR" experience to PC gamers.
+**AutoGameHDR** is a simple, lightweight tool for Windows that brings the "Auto HDR" experience from consoles to your PC. It detects when you launch a game and automatically toggles Windows HDR on, then turns it off when you're done. No more digging through display settings every time you want to play.
 
 ---
 
 <a name="english"></a>
-## English
+## 🇬🇧 English
 
-### ✨ Features
-* **Automatic HDR Toggling:** Detects game launch events and enables Windows HDR instantly. Disables it when you quit to save your eyes.
-* **Cloud-Sync Database:** Powered by [HDR-Game-Database](https://github.com/sysxfml/HDR-Game-Database), the whitelist updates automatically every day based on PCGamingWiki data.
-* **Manual Override:** Game not detected? Simply right-click the tray icon -> "Add Recent Game" to add it to your local whitelist forever.
-* **Lightweight:** Runs silently in the system tray with minimal resource usage (<10MB RAM).
-* **Single File:** No installation required. Portable EXE.
+### ✨ Key Features
+* **Auto HDR Toggle:** Instantly enables Windows HDR when a supported game launches and disables it upon exit. Saves you the hassle of manual switching.
+* **Cloud-Synced Whitelist:** Powered by [HDR-Game-Database](https://github.com/sysxfml/HDR-Game-Database), the app automatically pulls the latest list of HDR-supported games from GitHub daily.
+* **Process Selector:** Game not detected? Right-click the tray icon and use the **"Add from Running Processes"** feature to pick your game from a list—just like Cheat Engine.
+* **Manual Update:** You can force an update of the online game list at any time via the right-click menu.
+* **Zero Distraction:** Runs silently in the system tray with minimal resource usage (<10MB RAM). Configurable to run at Windows startup.
+* **Portable:** A single `.exe` file. No installation needed.
 
 ### 📥 Download
-Go to the [**Releases**](https://github.com/sysxfml/AutoGameHDR/releases) page to download the latest `AutoGameHDR.exe`.
+Grab the latest `AutoGameHDR.exe` from the [**Releases Page**](https://github.com/sysxfml/AutoGameHDR/releases).
 
-### 🚀 Usage
-1.  Download and place `AutoGameHDR.exe` anywhere (e.g., Documents or Desktop).
-2.  Run it (Run as Administrator is recommended for best detection).
-3.  Find the shield icon 🛡️ (or your custom icon) in the system tray.
-4.  **Launch a game!** If it's a known HDR title (e.g., *Cyberpunk 2077*, *Elden Ring*), your monitor will switch to HDR mode automatically.
-5.  **Game not recognized?** * Alt-Tab to desktop.
-    * Right-click the tray icon -> **"Add Recent Game..."**
-    * Select your running game. Done!
+### 🚀 How to Use
+1.  Download and place `AutoGameHDR.exe` anywhere you like.
+2.  Run the app. **Note:** It will request Administrator privileges to ensure it can detect all game processes correctly.
+3.  You'll see a small controller icon in your system tray.
+4.  **Just play:** Launch a known HDR title (e.g., *Cyberpunk 2077*, *Elden Ring*), and your screen will switch to HDR mode automatically.
+5.  **Game not recognized?**
+    * Right-click the tray icon -> **"Add from Running Processes..."**
+    * Select your game from the list. It's now saved locally!
+    * You can manage your custom list via **"Manage Custom List..."**.
+
+### 📂 Data Location
+User configurations and local whitelists are stored in `%AppData%\AutoGameHDR`.
 
 ---
 
 <a name="chinese"></a>
-## 中文
+## 🇨🇳 中文
 
 ### ✨ 核心功能
-* **HDR 自动开关：** 像主机一样，打开游戏自动开启 Windows HDR，退出游戏自动切回 SDR，保护眼睛。
-* **云端白名单：** 内置云端同步功能，依赖 [HDR-Game-Database](https://github.com/sysxfml/HDR-Game-Database) 项目，每日自动更新最新的 HDR 游戏支持列表。
-* **手动添加：** 遇到冷门游戏没反应？右键托盘图标即可“添加刚才运行的游戏”，永久生效。
-* **极简轻量：** 无主界面，仅在托盘运行，几乎不占系统资源。
-* **单文件绿色版：** 无需安装，下载即用。
+* **HDR 自动开关：** 像主机体验一样，打开游戏自动开启 Windows HDR，退出游戏自动切回 SDR。不用再忍受桌面模式下 HDR 的发白色彩。
+* **云端同步：** 软件依托于 [HDR-Game-Database](https://github.com/sysxfml/HDR-Game-Database) 项目，每天自动从 GitHub 获取最新的 HDR 游戏支持列表（基于 PCGamingWiki 数据）。
+* **智能添加：** 遇到冷门游戏没反应？右键菜单选择 **“从运行中的进程添加”**，直接在列表里勾选你的游戏，立即生效。
+* **手动更新：** 支持通过右键菜单手动强制更新云端白名单，随时获取最新支持库。
+* **极简轻量：** 无主界面，仅在托盘静默运行，几乎不占系统资源。支持开机自启。
+* **单文件版：** 一个 exe 文件搞定所有，无需安装。
 
 ### 📥 下载
-请前往 [**Releases (发行版)**](https://github.com/sysxfml/AutoGameHDR/releases) 页面下载最新的 `AutoGameHDR.exe` 文件。
+请前往 [**Releases**](https://github.com/sysxfml/AutoGameHDR/releases) 页面下载最新的 `AutoGameHDR.exe`。
 
-### 🚀 使用方法
-1.  下载 `AutoGameHDR.exe` 并放在任意文件夹。
-2.  运行程序 (建议右键属性勾选“以管理员身份运行”，检测更灵敏)。
+### 🚀 使用指南
+1.  下载 `AutoGameHDR.exe` 放在任意位置。
+2.  运行程序（程序启动时会请求管理员权限，这是为了能准确检测到所有游戏进程）。
 3.  程序会最小化到右下角托盘区。
-4.  **直接玩游戏：** 如果是支持 HDR 的大作，屏幕会自动黑屏闪烁一下进入 HDR 模式。
+4.  **直接开始游戏：** 如果是支持 HDR 的大作（如《黑神话：悟空》、《赛博朋克2077》），屏幕会自动闪烁一下进入 HDR 模式。
 5.  **如果没反应：**
-    * 切回桌面。
-    * 右键托盘图标 -> **"添加刚才运行的游戏..."**。
-    * 选择你的游戏进程。下次启动就会自动触发了！
+    * 右键托盘图标 -> **"从运行中的进程添加..."**
+    * 在弹出的窗口中双击你的游戏进程。
+    * 下次启动该游戏时就会自动触发了！
+
+### 📂 数据存储
+你的自定义名单和配置文件保存在 `%AppData%\AutoGameHDR` 目录下，不会污染程序所在目录。
 
 ---
 ### 🛠️ Built With
