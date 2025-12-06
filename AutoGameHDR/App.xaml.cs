@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Threading; // 用于 Thread.Sleep
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading; // 用于 DispatcherTimer
 using Microsoft.Win32;
 using Hardcodet.Wpf.TaskbarNotification;
 using WinForms = System.Windows.Forms;
+using Sche = Microsoft.Win32.TaskScheduler;
 
 namespace AutoGameHDR
 {
@@ -21,8 +23,14 @@ namespace AutoGameHDR
         private const string APP_NAME = "AutoGameHDR";
 
         private TaskbarIcon _trayIcon;
-        private ManagementEventWatcher _startWatcher;
-        private ManagementEventWatcher _stopWatcher;
+
+        // 【核心】极速轮询定时器
+        private DispatcherTimer _fastPoller;
+
+        // 【修复】补全之前遗漏的菜单项变量定义
+        private MenuItem _themeAutoItem;
+        private MenuItem _themeLightItem;
+        private MenuItem _themeDarkItem;
 
         private HashSet<string> _userWhitelist = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private HashSet<string> _disabledUserGames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -62,45 +70,99 @@ namespace AutoGameHDR
             LoadLocalData();
 
             Task.Run(() => CheckForUpdates(false));
-            StartProcessWatcher();
+
+            // 启动极速检测
+            StartFastPolling();
         }
 
-        private void LoadThemeSetting()
+        // ==========================================
+        //  极速轮询逻辑 (替代 WMI)
+        // ==========================================
+        private void StartFastPolling()
         {
+            _fastPoller = new DispatcherTimer();
+            // 每 500ms 扫描一次，响应极快且稳定
+            _fastPoller.Interval = TimeSpan.FromMilliseconds(500);
+            _fastPoller.Tick += FastPoller_Tick;
+            _fastPoller.Start();
+        }
+
+        private void FastPoller_Tick(object sender, EventArgs e)
+        {
+            // 1. 获取当前所有运行的进程名
+            HashSet<string> currentProcesses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                if (File.Exists(_themeConfigPath))
+                foreach (var p in Process.GetProcesses())
                 {
-                    string themeStr = File.ReadAllText(_themeConfigPath).Trim();
-                    if (Enum.TryParse(themeStr, out AppTheme theme))
+                    currentProcesses.Add(p.ProcessName + ".exe");
+                }
+            }
+            catch { return; }
+
+            // 2. 状态判断
+            if (_currentRunningHdrGame == null)
+            {
+                // A. 当前未开启 -> 扫描是否有白名单游戏
+                foreach (var proc in currentProcesses)
+                {
+                    if (IsIgnoredProcess(proc)) continue;
+
+                    if ((_userWhitelist.Contains(proc) || _globalWhitelist.Contains(proc)) &&
+                        !_disabledUserGames.Contains(proc))
                     {
-                        ThemeManager.ApplyTheme(theme);
-                        return;
+                        // 发现游戏，开启 HDR
+                        TurnHdrOn(proc);
+
+                        // 记录到最近列表
+                        if (!_recentProcesses.Contains(proc))
+                            AddToRecentHistory(proc);
+
+                        break;
                     }
                 }
             }
-            catch { }
-            ThemeManager.ApplyTheme(AppTheme.Auto);
-        }
-
-        private void SaveThemeSetting(AppTheme theme)
-        {
-            try
+            else
             {
-                ThemeManager.ApplyTheme(theme);
-                File.WriteAllText(_themeConfigPath, theme.ToString());
-                UpdateThemeMenuCheckState();
+                // B. 当前已开启 -> 检查游戏是否还在运行 (看门狗)
+                if (!currentProcesses.Contains(_currentRunningHdrGame))
+                {
+                    // 游戏消失，关闭 HDR
+                    TurnHdrOff(_currentRunningHdrGame);
+                }
             }
-            catch { }
         }
 
         // ==========================================
-        //  UI 与 交互逻辑
+        //  HDR 开关动作
         // ==========================================
-        private MenuItem _themeAutoItem;
-        private MenuItem _themeLightItem;
-        private MenuItem _themeDarkItem;
+        private void TurnHdrOn(string processName)
+        {
+            _currentRunningHdrGame = processName;
 
+            _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOn"), processName), BalloonIcon.Info);
+            SimulateHdrToggle();
+        }
+
+        private void TurnHdrOff(string processName)
+        {
+            _currentRunningHdrGame = null; // 立即重置状态
+
+            // 稍微延迟一点，确保切回桌面
+            Task.Run(async () =>
+            {
+                await Task.Delay(1500);
+                Dispatcher.Invoke(() =>
+                {
+                    _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOff"), processName), BalloonIcon.Info);
+                    SimulateHdrToggle();
+                });
+            });
+        }
+
+        // ==========================================
+        //  UI 初始化
+        // ==========================================
         private void InitializeTrayIcon()
         {
             _trayIcon = new TaskbarIcon();
@@ -137,7 +199,6 @@ namespace AutoGameHDR
 
             contextMenu.Items.Add(new Separator());
 
-            // 【修复】主题菜单
             var themeItem = new MenuItem { Header = GetText("ThemeSettings") };
 
             _themeAutoItem = new MenuItem { Header = GetText("ThemeAuto") };
@@ -149,7 +210,6 @@ namespace AutoGameHDR
             _themeDarkItem = new MenuItem { Header = GetText("ThemeDark") };
             _themeDarkItem.Click += (s, e) => SaveThemeSetting(AppTheme.Dark);
 
-            // 之前漏掉了这两行：
             themeItem.Items.Add(_themeAutoItem);
             themeItem.Items.Add(_themeLightItem);
             themeItem.Items.Add(_themeDarkItem);
@@ -179,6 +239,38 @@ namespace AutoGameHDR
             _themeDarkItem.IsChecked = ThemeManager.CurrentThemePreference == AppTheme.Dark;
         }
 
+        private void LoadThemeSetting()
+        {
+            try
+            {
+                if (File.Exists(_themeConfigPath))
+                {
+                    string themeStr = File.ReadAllText(_themeConfigPath).Trim();
+                    if (Enum.TryParse(themeStr, out AppTheme theme))
+                    {
+                        ThemeManager.ApplyTheme(theme);
+                        return;
+                    }
+                }
+            }
+            catch { }
+            ThemeManager.ApplyTheme(AppTheme.Auto);
+        }
+
+        private void SaveThemeSetting(AppTheme theme)
+        {
+            try
+            {
+                ThemeManager.ApplyTheme(theme);
+                File.WriteAllText(_themeConfigPath, theme.ToString());
+                UpdateThemeMenuCheckState();
+            }
+            catch { }
+        }
+
+        // ==========================================
+        //  窗口管理
+        // ==========================================
         private void OpenAddGameWindow()
         {
             var win = new ProcessSelectorWindow();
@@ -215,38 +307,9 @@ namespace AutoGameHDR
             MessageBox.Show("名单更新成功！", "AutoGameHDR", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
         }
 
-        private bool IsStartupEnabled()
-        {
-            try
-            {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
-                {
-                    return key.GetValue(APP_NAME) != null;
-                }
-            }
-            catch { return false; }
-        }
-
-        private void ToggleStartup(bool enable)
-        {
-            try
-            {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true))
-                {
-                    if (enable)
-                    {
-                        string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-                        key.SetValue(APP_NAME, $"\"{exePath}\"");
-                    }
-                    else key.DeleteValue(APP_NAME, false);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("设置开机启动失败：\n" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
-            }
-        }
-
+        // ==========================================
+        //  数据与辅助
+        // ==========================================
         private void AddCustomGame(string processName)
         {
             if (_disabledUserGames.Contains(processName)) _disabledUserGames.Remove(processName);
@@ -255,55 +318,17 @@ namespace AutoGameHDR
                 _userWhitelist.Add(processName);
                 SaveUserList();
                 _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgAddSuccess"), processName), BalloonIcon.Info);
-                if (IsProcessRunning(processName) && _currentRunningHdrGame == null)
-                {
-                    _currentRunningHdrGame = processName;
-                    Dispatcher.Invoke(() => { _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOn"), processName), BalloonIcon.Info); SimulateHdrToggle(); });
-                }
+
+                // 轮询模式下会自动开启，不需要手动调 TurnHdrOn
             }
         }
 
-        private void StartProcessWatcher()
+        private void AddToRecentHistory(string processName)
         {
-            try
+            lock (_recentProcesses)
             {
-                var startQuery = new WqlEventQuery("SELECT * FROM Win32_ProcessStartTrace");
-                _startWatcher = new ManagementEventWatcher(startQuery);
-                _startWatcher.EventArrived += OnProcessStarted;
-                _startWatcher.Start();
-                var stopQuery = new WqlEventQuery("SELECT * FROM Win32_ProcessStopTrace");
-                _stopWatcher = new ManagementEventWatcher(stopQuery);
-                _stopWatcher.EventArrived += OnProcessStopped;
-                _stopWatcher.Start();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("无法启动进程监听！\n请确保已赋予软件管理员权限。\n\n错误信息：" + ex.Message, "严重错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                Shutdown();
-            }
-        }
-
-        private void OnProcessStarted(object sender, EventArrivedEventArgs e)
-        {
-            string processName = e.NewEvent.Properties["ProcessName"].Value.ToString();
-            if (IsIgnoredProcess(processName)) return;
-            if ((_userWhitelist.Contains(processName) || _globalWhitelist.Contains(processName)) && !_disabledUserGames.Contains(processName))
-            {
-                if (_currentRunningHdrGame == null)
-                {
-                    _currentRunningHdrGame = processName;
-                    Dispatcher.Invoke(() => { _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOn"), processName), BalloonIcon.Info); SimulateHdrToggle(); });
-                }
-            }
-        }
-
-        private void OnProcessStopped(object sender, EventArrivedEventArgs e)
-        {
-            string processName = e.NewEvent.Properties["ProcessName"].Value.ToString();
-            if (string.Equals(_currentRunningHdrGame, processName, StringComparison.OrdinalIgnoreCase))
-            {
-                _currentRunningHdrGame = null;
-                Task.Run(async () => { await Task.Delay(2000); Dispatcher.Invoke(() => { _trayIcon.ShowBalloonTip("Auto HDR", string.Format(GetText("MsgHdrOff"), processName), BalloonIcon.Info); SimulateHdrToggle(); }); });
+                if (_recentProcesses.Count >= 10) _recentProcesses.Dequeue();
+                _recentProcesses.Enqueue(processName);
             }
         }
 
@@ -315,14 +340,112 @@ namespace AutoGameHDR
                    lower == "autogamehdr.exe" || lower == "taskmgr.exe";
         }
 
-        private bool IsProcessRunning(string name)
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+        private const int KEYEVENTF_EXTENDEDKEY = 0x1;
+        private const int KEYEVENTF_KEYUP = 0x2;
+        private const byte VK_LWIN = 0x5B;
+        private const byte VK_MENU = 0x12;
+        private const byte VK_B = 0x42;
+
+        private void SimulateHdrToggle()
+        {
+            keybd_event(VK_LWIN, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            Thread.Sleep(30);
+            keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            Thread.Sleep(30);
+            keybd_event(VK_B, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            Thread.Sleep(30);
+
+            keybd_event(VK_B, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+            Thread.Sleep(30);
+            keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+            Thread.Sleep(30);
+            keybd_event(VK_LWIN, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+        }
+
+        private void LoadLocalData()
+        {
+            if (File.Exists(_userListPath))
+            {
+                try
+                {
+                    foreach (var line in File.ReadAllLines(_userListPath))
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        string trim = line.Trim();
+                        if (trim.StartsWith("#")) _disabledUserGames.Add(trim.Substring(1));
+                        else _userWhitelist.Add(trim);
+                    }
+                }
+                catch { }
+            }
+            if (File.Exists(_globalListPath))
+            {
+                try
+                {
+                    foreach (var line in File.ReadAllLines(_globalListPath))
+                        if (!string.IsNullOrWhiteSpace(line)) _globalWhitelist.Add(line.Trim());
+                }
+                catch { }
+            }
+        }
+
+        private void SaveUserList()
         {
             try
             {
-                var procNameWithoutExt = Path.GetFileNameWithoutExtension(name);
-                return Process.GetProcessesByName(procNameWithoutExt).Length > 0;
+                var lines = new List<string>();
+                lines.AddRange(_userWhitelist);
+                lines.AddRange(_disabledUserGames.Select(g => "#" + g));
+                File.WriteAllLines(_userListPath, lines);
+            }
+            catch { }
+        }
+
+        private bool IsStartupEnabled()
+        {
+            try
+            {
+                using (Sche.TaskService ts = new Sche.TaskService())
+                {
+                    return ts.FindTask(APP_NAME) != null;
+                }
             }
             catch { return false; }
+        }
+
+        private void ToggleStartup(bool enable)
+        {
+            try
+            {
+                using (Sche.TaskService ts = new Sche.TaskService())
+                {
+                    if (enable)
+                    {
+                        string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                        Sche.TaskDefinition td = ts.NewTask();
+                        td.RegistrationInfo.Description = "Auto-start AutoGameHDR with Admin privileges.";
+                        td.Principal.RunLevel = Sche.TaskRunLevel.Highest;
+                        td.Triggers.Add(new Sche.LogonTrigger());
+                        td.Actions.Add(new Sche.ExecAction(exePath, null, Path.GetDirectoryName(exePath)));
+                        td.Settings.DisallowStartIfOnBatteries = false;
+                        td.Settings.StopIfGoingOnBatteries = false;
+                        td.Settings.ExecutionTimeLimit = TimeSpan.Zero;
+                        ts.RootFolder.RegisterTaskDefinition(APP_NAME, td);
+                        MessageBox.Show("已成功设置开机自启 (计划任务)。", "成功", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+                    }
+                    else
+                    {
+                        ts.RootFolder.DeleteTask(APP_NAME, false);
+                        MessageBox.Show("已取消开机自启。", "成功", MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("设置开机启动失败：\n" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            }
         }
 
         private void InitLocalization()
@@ -419,68 +542,10 @@ namespace AutoGameHDR
             }
         }
 
-        [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
-        private const int KEYEVENTF_EXTENDEDKEY = 0x1;
-        private const int KEYEVENTF_KEYUP = 0x2;
-        private const byte VK_LWIN = 0x5B;
-        private const byte VK_MENU = 0x12;
-        private const byte VK_B = 0x42;
-
-        private void SimulateHdrToggle()
-        {
-            keybd_event(VK_LWIN, 0, KEYEVENTF_EXTENDEDKEY, 0);
-            keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY, 0);
-            keybd_event(VK_B, 0, KEYEVENTF_EXTENDEDKEY, 0);
-            keybd_event(VK_B, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-            keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-            keybd_event(VK_LWIN, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-        }
-
-        private void LoadLocalData()
-        {
-            if (File.Exists(_userListPath))
-            {
-                try
-                {
-                    foreach (var line in File.ReadAllLines(_userListPath))
-                    {
-                        if (string.IsNullOrWhiteSpace(line)) continue;
-                        string trim = line.Trim();
-                        if (trim.StartsWith("#")) _disabledUserGames.Add(trim.Substring(1));
-                        else _userWhitelist.Add(trim);
-                    }
-                }
-                catch { }
-            }
-            if (File.Exists(_globalListPath))
-            {
-                try
-                {
-                    foreach (var line in File.ReadAllLines(_globalListPath))
-                        if (!string.IsNullOrWhiteSpace(line)) _globalWhitelist.Add(line.Trim());
-                }
-                catch { }
-            }
-        }
-
-        private void SaveUserList()
-        {
-            try
-            {
-                var lines = new List<string>();
-                lines.AddRange(_userWhitelist);
-                lines.AddRange(_disabledUserGames.Select(g => "#" + g));
-                File.WriteAllLines(_userListPath, lines);
-            }
-            catch { }
-        }
-
         protected override void OnExit(ExitEventArgs e)
         {
             _trayIcon?.Dispose();
-            _startWatcher?.Stop();
-            _stopWatcher?.Stop();
+            // _fastPoller?.Stop(); // 轮询自动随程序结束
             base.OnExit(e);
         }
     }

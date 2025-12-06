@@ -9,7 +9,7 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
 	<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 	<ApplicationManifest>app.manifest</ApplicationManifest>
-	<Version>1.5.0</Version>
+	<Version>1.7.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +25,7 @@
   <ItemGroup>
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
     <PackageReference Include="System.Management" Version="10.0.0" />
+    <PackageReference Include="TaskScheduler" Version="2.12.2" />
   </ItemGroup>
 
 </Project>
