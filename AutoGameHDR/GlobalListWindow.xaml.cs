@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
 
 namespace AutoGameHDR
 {
@@ -11,7 +13,8 @@ namespace AutoGameHDR
             var sortedList = globalGames.OrderBy(x => x).ToList();
             GameList.ItemsSource = sortedList;
 
-            this.Title = $"在线云端白名单 (共 {sortedList.Count} 个)";
+            var app = (App)Application.Current;
+            this.Title = $"{app.GetText("Lang_GlobalListTitlePrefix")} ({sortedList.Count})";
         }
 
         private void Close_Click(object sender, RoutedEventArgs e)

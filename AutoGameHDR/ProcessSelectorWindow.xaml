@@ -1,7 +1,7 @@
 ﻿<Window x:Class="AutoGameHDR.ProcessSelectorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="添加游戏到自定义名单" Height="520" Width="480"
+        Title="{DynamicResource Lang_AddGameTitle}" Height="520" Width="480"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource PrimaryText}"
@@ -15,8 +15,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="方式 1: 从正在运行的进程中选择 (双击添加)" FontWeight="Bold" Margin="0,0,0,5"/>
-            <TextBlock Text="方式 2: 点击左下角“浏览文件”手动选择 exe" Foreground="{DynamicResource SecondaryText}"/>
+            <TextBlock Text="{DynamicResource Lang_ProcSelectMethod1}" FontWeight="Bold" Margin="0,0,0,5"/>
+            <TextBlock Text="{DynamicResource Lang_ProcSelectMethod2}" Foreground="{DynamicResource SecondaryText}"/>
         </StackPanel>
 
         <ListBox x:Name="ProcessList" Grid.Row="1" BorderThickness="1" 
@@ -53,17 +53,17 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Column="0" Content="📂 浏览文件..." Click="Browse_Click" 
+            <Button Grid.Column="0" Content="{DynamicResource Lang_BtnBrowse}" Click="Browse_Click" 
                     Height="32" MinWidth="100"/>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal">
-                <Button Content="刷新" Click="Refresh_Click" 
+                <Button Content="{DynamicResource Lang_BtnRefresh}" Click="Refresh_Click" 
                         Height="32" MinWidth="80" Margin="0,0,10,0"/>
 
-                <Button Content="取消" Click="Cancel_Click" 
+                <Button Content="{DynamicResource Lang_BtnCancel}" Click="Cancel_Click" 
                         Height="32" MinWidth="80" Margin="0,0,10,0"/>
 
-                <Button Content="添加选中" Click="Select_Click" 
+                <Button Content="{DynamicResource Lang_BtnAddSelected}" Click="Select_Click" 
                         Height="32" MinWidth="100" FontWeight="Bold"/>
             </StackPanel>
         </Grid>

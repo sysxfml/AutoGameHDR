@@ -9,7 +9,8 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
 	<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 	<ApplicationManifest>app.manifest</ApplicationManifest>
-	<Version>1.9.0</Version>
+	<Version>1.9.1</Version>
+	<Authors>$(AssemblyName)</Authors>
   </PropertyGroup>
 
   <ItemGroup>

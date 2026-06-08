@@ -5,7 +5,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.IO;
-// 【关键】引入 WinForms 别名
 using WinForms = System.Windows.Forms;
 
 namespace AutoGameHDR
@@ -57,17 +56,15 @@ namespace AutoGameHDR
                    lower == "autogamehdr" || lower == "taskmgr" || lower == "applicationframehost";
         }
 
-        // ===========================
-        //  【防崩溃】使用 WinForms 文件浏览框
-        // ===========================
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 using (var openFileDialog = new WinForms.OpenFileDialog())
                 {
-                    openFileDialog.Title = "选择游戏主程序 (.exe)";
-                    openFileDialog.Filter = "可执行文件 (*.exe)|*.exe";
+                    var app = (App)Application.Current;
+                    openFileDialog.Title = app.GetText("Lang_BrowseFileTitle");
+                    openFileDialog.Filter = app.GetText("Lang_BrowseFileFilter");
                     openFileDialog.Multiselect = false;
                     openFileDialog.CheckFileExists = true;
 
@@ -82,7 +79,8 @@ namespace AutoGameHDR
             }
             catch (Exception ex)
             {
-                MessageBox.Show("打开文件浏览框失败：" + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                var app = (App)Application.Current;
+                MessageBox.Show(app.GetText("Lang_MsgBrowseBoxFail") + " " + ex.Message, app.GetText("PromptError"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -112,7 +110,8 @@ namespace AutoGameHDR
             }
             else
             {
-                MessageBox.Show("请先选择一个进程！");
+                var app = (App)Application.Current;
+                MessageBox.Show(app.GetText("Lang_MsgNoProcessSelected"), app.GetText("PromptTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
